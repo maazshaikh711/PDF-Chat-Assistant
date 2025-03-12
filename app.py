@@ -18,22 +18,6 @@ st.caption("🚀 Upload multiple PDFs and get AI-powered insights with source ci
 st.sidebar.title("🔍 Analysis Progress")
 st.sidebar.write("Monitor processing in real-time!")
 
-# Initialize Azure Services
-embeddings = AzureOpenAIEmbeddings(
-    azure_deployment="embedding_model",
-    openai_api_version="2024-05-01-preview",
-    azure_endpoint="https://stock-agent.openai.azure.com/",
-    api_key="7219267fcc1345cabcd25ac868c686c1"
-)
-
-llm = AzureChatOpenAI(
-    azure_deployment="model-4o",
-    openai_api_version="2024-05-01-preview",
-    azure_endpoint="https://stock-agent.openai.azure.com/",
-    api_key="7219267fcc1345cabcd25ac868c686c1",
-    temperature=0.7,
-    max_tokens=500
-)
 
 # File Uploader
 uploaded_files = st.file_uploader("📂 Upload PDF documents", type="pdf", accept_multiple_files=True)
