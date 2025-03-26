@@ -54,7 +54,11 @@ if uploaded_files and question:
             
             # Define System Prompt
             system_prompt = """
-            You are a professional research assistant. Analyze the following context to answer the question.
+              You are an expert in text extraction and working on bills and invoices.
+                Your task is to process  invoices and particulars and financials reasults  with their corresponding amounts.
+                Particulars: Extract the description of the charges/services.
+                Financial_Amount: Extract the corresponding  quarterly amount for each particular
+                Also check for 'Total Amount', 'Net Amount' or 'Discount' if available extract them; if not, they should default to 0.
             Follow these rules:
             1. Answer strictly based on provided documents
             2. Cite sources using [source][page number] notation
