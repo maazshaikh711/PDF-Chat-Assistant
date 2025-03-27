@@ -11,9 +11,7 @@ from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
 
- # --- Initialize Azure Services ---
-    # Initialize Azure Services
- 
+# --- Initialize Azure Services ---
 
 
 # Set page configuration once at the top!
@@ -33,7 +31,18 @@ def save_users(users, filepath="users.json"):
     with open(filepath, "w") as f:
         json.dump(users, f)
 
-# --- Initialize Persistent Users ---
+# Helper functions to load and save user questions
+def load_user_questions(filepath="user_questions.json"):
+    if os.path.exists(filepath):
+        with open(filepath, "r") as f:
+            return json.load(f)
+    return {}
+
+def save_user_questions(user_questions, filepath="user_questions.json"):
+    with open(filepath, "w") as f:
+        json.dump(user_questions, f)
+
+# --- Initialize Persistent Data ---
 users_file = "users.json"
 users = load_users(users_file)
 
@@ -45,12 +54,14 @@ if 'logged_in' not in st.session_state:
 if 'username' not in st.session_state:
     st.session_state['username'] = ""
 if 'user_questions' not in st.session_state:
-    st.session_state['user_questions'] = {}  # Dictionary to hold lists of questions for each user
+    st.session_state['user_questions'] = load_user_questions()
 
-# --- Authentication UI (only visible if not logged in) ---
+
+
+# --- Authentication UI (visible when not logged in) ---
 if not st.session_state.get("logged_in"):
     auth_option = st.sidebar.radio("Authentication", ("Login", "Sign Up"))
-
+    
     if auth_option == "Sign Up":
         st.sidebar.subheader("Create New Account")
         new_username = st.sidebar.text_input("Username", key="signup_username")
@@ -65,7 +76,7 @@ if not st.session_state.get("logged_in"):
                     st.sidebar.success("Account created successfully! Please log in.")
             else:
                 st.sidebar.error("Please provide both username and password.")
-
+    
     if auth_option == "Login":
         st.sidebar.subheader("Login")
         username = st.sidebar.text_input("Username", key="login_username")
@@ -75,12 +86,25 @@ if not st.session_state.get("logged_in"):
             if username in stored_users and stored_users[username] == hash_password(password):
                 st.session_state['logged_in'] = True
                 st.session_state['username'] = username
-                # Initialize the user's questions list if not already present
+                # Ensure the user's questions list exists
                 if username not in st.session_state['user_questions']:
                     st.session_state['user_questions'][username] = []
                 st.sidebar.success(f"Welcome {username}!")
             else:
                 st.sidebar.error("Invalid username or password.")
+
+if st.session_state.get("logged_in"):
+    if st.sidebar.button("Logout", key="logout_btn"):
+        st.session_state["logged_in"] = False
+        st.session_state["username"] = ""
+        st.sidebar.success("Logged out successfully!")
+        st.sidebar.button("Login", key="login_btn")
+        #set logged in to false
+# else:
+#     # When not logged in, show a Login button (or the login form) with a unique key.
+#     if st.sidebar.button("Login", key="login_btn"):
+#         st.sidebar.info("Please use the login form below to sign in.")
+
 
 # --- Main App Content (only for logged in users) ---
 if st.session_state.get("logged_in"):
@@ -93,25 +117,25 @@ if st.session_state.get("logged_in"):
     user_qs = st.session_state['user_questions'].get(username, [])
     with st.sidebar.expander("💬 Your Previous Questions", expanded=True):
         if user_qs:
-            for i, q in enumerate(user_qs[::-1], 1):  # showing latest first
+            for i, q in enumerate(user_qs[::-1], 1):  # Latest questions first
                 st.write(f"**Q{i}:** {q}")
         else:
             st.write("No previous questions yet.")
-
-   
     
 
-    # File Uploader and Question Input
+    
+    # --- File Uploader and Document Analysis ---
     uploaded_files = st.file_uploader("📂 Upload PDF documents", type="pdf", accept_multiple_files=True)
     question = st.text_input("💬 Enter your research question:", placeholder="What do you want to know from these documents?")
     
-    # Placeholder for analysis progress (only shows during processing)
+    # Placeholder for analysis progress
     progress_placeholder = st.sidebar.empty()
 
     if uploaded_files and question:
-        # Save the question in session state for this user.
+        # Save the research question in the user's history
         st.session_state['user_questions'][username].append(question)
-        
+        save_user_questions(st.session_state['user_questions'])
+        # st.success("Question saved!")
         try:
             with st.spinner("🔄 Analyzing documents..."):
                 progress_placeholder.info("Initializing analysis...")
@@ -132,7 +156,7 @@ if st.session_state.get("logged_in"):
                 
                 progress_placeholder.info("Documents processed. Creating embeddings...")
                 
-                # Create Vector Store
+                # Create Vector Store and Retriever
                 vector_store = FAISS.from_documents(all_docs, embeddings)
                 retriever = vector_store.as_retriever(search_kwargs={"k": 4})
                 
@@ -167,7 +191,6 @@ if st.session_state.get("logged_in"):
                 # Execute RAG Chain
                 response = rag_chain.invoke({"input": question})
                 
-                # Once processing is complete, clear the progress placeholder.
                 progress_placeholder.empty()
                 
                 # Display Results

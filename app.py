@@ -105,3 +105,100 @@ elif not uploaded_files:
     st.warning("⚠️ Please upload PDF documents to begin analysis.")
 elif not question:
     st.warning("⚠️ Please enter a research question to start your analysis.")
+
+
+
+
+
+# --- Authentication UI (only visible if not logged in) ---
+if not st.session_state.get("logged_in"):
+    auth_option = st.sidebar.radio("Authentication", ("Login", "Sign Up"))
+
+    if auth_option == "Sign Up":
+        st.sidebar.subheader("Create New Account")
+        new_username = st.sidebar.text_input("Username", key="signup_username")
+        new_password = st.sidebar.text_input("Password", type="password", key="signup_password")
+        if st.sidebar.button("Sign Up"):
+            if new_username and new_password:
+                if new_username in st.session_state['users']:
+                    st.sidebar.error("Username already exists!")
+                else:
+                    st.session_state['users'][new_username] = hash_password(new_password)
+                    save_users(st.session_state['users'], users_file)
+                    st.sidebar.success("Account created successfully! Please log in.")
+            else:
+                st.sidebar.error("Please provide both username and password.")
+
+    if auth_option == "Login":
+        st.sidebar.subheader("Login")
+        username = st.sidebar.text_input("Username", key="login_username")
+        password = st.sidebar.text_input("Password", type="password", key="login_password")
+        if st.sidebar.button("Login"):
+            stored_users = st.session_state['users']
+            if username in stored_users and stored_users[username] == hash_password(password):
+                st.session_state['logged_in'] = True
+                st.session_state['username'] = username
+                # Initialize the user's questions list if not already present
+                if username not in st.session_state['user_questions']:
+                    st.session_state['user_questions'][username] = []
+                st.sidebar.success(f"Welcome {username}!")
+            else:
+                st.sidebar.error("Invalid username or password.")
+                
+# --- Main App Content (only for logged in users) ---
+if st.session_state.get("logged_in"):
+    # Add a logout button in the sidebar
+    if st.sidebar.button("Logout"):
+        st.session_state["logged_in"] = False
+        st.session_state["username"] = ""
+        st.sidebar.success("Logged out successfully!")
+    
+    # Main Title and Caption
+    st.title("📄 PDF Chat Assistant")
+    st.caption("🚀 Upload multiple PDFs and get AI-powered insights with source citations")
+    
+    # --- Sidebar: Previous Questions (ChatGPT Style) ---
+    username = st.session_state['username']
+    user_qs = st.session_state['user_questions'].get(username, [])
+    with st.sidebar.expander("💬 Your Previous Questions", expanded=True):
+        if user_qs:
+            for i, q in enumerate(user_qs[::-1], 1):  # showing latest first
+                st.write(f"**Q{i}:** {q}")
+        else:
+            st.write("No previous questions yet.")
+    
+    # File Uploader and Question Input
+    uploaded_files = st.file_uploader("📂 Upload PDF documents", type="pdf", accept_multiple_files=True)
+    question = st.text_input("💬 Enter your research question:", placeholder="What do you want to know from these documents?")
+    
+    # Placeholder for analysis progress (only shows during processing)
+    progress_placeholder = st.sidebar.empty()
+
+    if uploaded_files and question:
+        # Save the question in session state for this user.
+        st.session_state['user_questions'][username].append(question)
+        
+        try:
+            with st.spinner("🔄 Analyzing documents..."):
+                progress_placeholder.info("Initializing analysis...")
+                # Process documents...
+                # [Your document processing, embedding, and chain creation logic here]
+                progress_placeholder.empty()
+                st.subheader("📜 Research Findings")
+                st.info("**Answer:** " + response['answer'])
+                st.divider()
+                st.subheader("📚 Source References")
+                # [Display source references logic here]
+        
+        except Exception as e:
+            progress_placeholder.empty()
+            st.error(f"❌ Error during processing: {str(e)}")
+    
+    elif not uploaded_files:
+        st.warning("⚠️ Please upload PDF documents to begin analysis.")
+    elif not question:
+        st.warning("⚠️ Please enter a research question to start your analysis.")
+else:
+    st.info("Please log in to use the app.")
+
+
